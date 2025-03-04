@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Slack DM Sender</title>
+    <title>Slack Message Sender</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,12 +11,13 @@
         }
         .form-group {
             margin-bottom: 15px;
+            position: relative;
         }
         label {
             display: block;
             margin-bottom: 5px;
         }
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             padding: 8px;
             margin-bottom: 10px;
@@ -45,43 +46,168 @@
             background-color: #f2dede;
             color: #a94442;
         }
+        #recipientId {
+            display: block;
+        }
+        .mention-suggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 1000;
+            display: none;
+        }
+        .mention-suggestion {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .mention-suggestion:hover {
+            background-color: #f5f5f5;
+        }
+        .mention {
+            color: #0000FF;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h1>Send Slack DM</h1>
+    <h1>Send Slack Message</h1>
     <div class="form-group">
-        <label for="userId">Slack User ID:</label>
-        <input type="text" id="userId" placeholder="Enter Slack user ID">
+        <label for="messageType">Message Type:</label>
+        <select id="messageType" onchange="updateRecipientLabel()">
+            <option value="dm">Direct Message</option>
+            <option value="channel">Channel Message</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label id="recipientLabel" for="recipientId">User ID:</label>
+        <input type="text" id="recipientId" placeholder="Enter Slack user ID or channel name">
     </div>
     <div class="form-group">
         <label for="message">Message:</label>
-        <textarea id="message" rows="4" placeholder="Enter your message"></textarea>
+        <textarea id="message" rows="4" placeholder="Enter your message (use @ to mention users)"></textarea>
+        <div id="mentionSuggestions" class="mention-suggestions"></div>
     </div>
     <button onclick="sendMessage()">Send Message</button>
     <div id="status"></div>
 
     <script>
-        async function sendMessage() {
-            const userId = document.getElementById('userId').value;
-            const message = document.getElementById('message').value;
-            const statusDiv = document.getElementById('status');
+        let mentionedUsers = [];
+        let lastAtIndex = -1;
+        let searchTerm = '';
 
-            if (!userId || !message) {
+        function updateRecipientLabel() {
+            const messageType = document.getElementById('messageType').value;
+            const label = document.getElementById('recipientLabel');
+            const input = document.getElementById('recipientId');
+            
+            if (messageType === 'channel') {
+                label.textContent = 'Channel Name:';
+                input.placeholder = 'Enter channel name (e.g., general)';
+            } else {
+                label.textContent = 'User ID:';
+                input.placeholder = 'Enter Slack user ID';
+            }
+        }
+
+        async function searchUsers(query) {
+            try {
+                const response = await fetch(`/search-users?query=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Failed to search users');
+                return await response.json();
+            } catch (error) {
+                console.error('Error searching users:', error);
+                return [];
+            }
+        }
+
+        function showMentionSuggestions(users) {
+            const suggestions = document.getElementById('mentionSuggestions');
+            suggestions.innerHTML = '';
+            
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.className = 'mention-suggestion';
+                div.textContent = `${user.name} (@${user.username})`;
+                div.onclick = () => selectUser(user);
+                suggestions.appendChild(div);
+            });
+            
+            suggestions.style.display = users.length > 0 ? 'block' : 'none';
+        }
+
+        function selectUser(user) {
+            const messageInput = document.getElementById('message');
+            const text = messageInput.value;
+            const beforeMention = text.substring(0, lastAtIndex);
+            const afterMention = text.substring(messageInput.selectionStart);
+            
+            messageInput.value = beforeMention + '@' + user.username + ' ' + afterMention;
+            mentionedUsers.push(user);
+            
+            document.getElementById('mentionSuggestions').style.display = 'none';
+            messageInput.focus();
+        }
+
+        document.getElementById('message').addEventListener('input', async (e) => {
+            const text = e.target.value;
+            const cursorPosition = e.target.selectionStart;
+            
+            // Find the last @ before cursor
+            lastAtIndex = text.lastIndexOf('@', cursorPosition - 1);
+            if (lastAtIndex === -1 || text.indexOf(' ', lastAtIndex) < cursorPosition) {
+                document.getElementById('mentionSuggestions').style.display = 'none';
+                return;
+            }
+            
+            searchTerm = text.substring(lastAtIndex + 1, cursorPosition);
+            if (searchTerm) {
+                const users = await searchUsers(searchTerm);
+                showMentionSuggestions(users);
+            }
+        });
+
+        document.getElementById('message').addEventListener('keydown', (e) => {
+            const suggestions = document.getElementById('mentionSuggestions');
+            if (suggestions.style.display === 'block' && e.key === 'Escape') {
+                suggestions.style.display = 'none';
+                e.preventDefault();
+            }
+        });
+
+        async function sendMessage() {
+            const messageType = document.getElementById('messageType').value;
+            const recipientId = document.getElementById('recipientId').value;
+            const message = document.getElementById('message').value;
+
+            if (!recipientId || !message) {
                 showStatus('Please fill in all fields', false);
                 return;
             }
 
             try {
-                const response = await fetch('/send-dm', {
+                const response = await fetch('/send-message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ userId, message })
+                    body: JSON.stringify({ 
+                        messageType,
+                        recipientId, 
+                        message,
+                        mentions: mentionedUsers
+                    })
                 });
 
                 const data = await response.json();
                 showStatus(data.message, response.ok);
+                if (response.ok) {
+                    // Clear mentioned users after successful send
+                    mentionedUsers = [];
+                }
             } catch (error) {
                 showStatus('Error sending message', false);
             }
@@ -93,6 +219,13 @@
             statusDiv.className = success ? 'success' : 'error';
             statusDiv.style.display = 'block';
         }
+
+        // Close mention suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.mention-suggestions') && !e.target.closest('#message')) {
+                document.getElementById('mentionSuggestions').style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>

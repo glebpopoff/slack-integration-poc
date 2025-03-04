@@ -1,6 +1,6 @@
-# Slack DM Sender
+# Slack Message Sender
 
-A simple web application to send direct messages to Slack users.
+A simple web application to send direct messages and channel messages in Slack.
 
 ## Setup
 
@@ -14,6 +14,8 @@ A simple web application to send direct messages to Slack users.
    - Under "OAuth & Permissions", add these bot token scopes:
      - `chat:write`
      - `im:write`
+     - `channels:read`
+     - `groups:read`
    - Install the app to your workspace
    - Copy the "Bot User OAuth Token" (starts with `xoxb-`)
 
@@ -35,6 +37,12 @@ A simple web application to send direct messages to Slack users.
 
 ## Usage
 
-1. Enter a Slack user ID (you can get this from their profile in Slack)
-2. Type your message
-3. Click "Send Message"
+1. Select message type (Direct Message or Channel Message)
+2. For Direct Messages:
+   - Enter a Slack user ID (get this from their profile in Slack)
+3. For Channel Messages:
+   - Enter the channel name (without the #)
+4. Type your message
+5. Click "Send Message"
+
+Note: The bot must be invited to any private channels before it can post messages there.
