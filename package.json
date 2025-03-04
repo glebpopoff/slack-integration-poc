@@ -1,0 +1,14 @@
+{
+  "name": "slack-dm-poc",
+  "version": "1.0.0",
+  "description": "Simple Slack DM sender",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@slack/web-api": "^6.8.1",
+    "express": "^4.18.2",
+    "dotenv": "^16.0.3"
+  }
+}
