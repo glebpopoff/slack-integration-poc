@@ -1,6 +1,31 @@
 # Slack Message Sender
 
-A simple web application to send direct messages and channel messages in Slack.
+A web application for sending direct messages and channel messages in Slack with user mention autocomplete functionality.
+
+![Application Architecture](image1.png)
+
+## Architecture
+
+The application follows a client-server architecture:
+
+### Backend (Node.js + Express)
+- **Server**: Express.js server handling API endpoints and static file serving
+- **Slack Integration**: Uses `@slack/web-api` for communicating with Slack's APIs
+- **API Endpoints**:
+  - `/search-users`: GET endpoint for user search and mention suggestions
+  - `/send-message`: POST endpoint for sending messages to users/channels
+
+### Frontend (HTML + JavaScript)
+- **UI Components**:
+  - Message type selector (DM/Channel)
+  - Recipient input
+  - Message composer with @mention support
+  - Status display
+- **Features**:
+  - Real-time user search for @mentions
+  - Dynamic recipient field validation
+  - Asynchronous message sending
+  - Interactive mention suggestions
 
 ## Setup
 
